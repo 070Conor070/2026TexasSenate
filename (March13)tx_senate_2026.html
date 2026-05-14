@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Texas Senate 2026 — Poll Tracker & Swingometer</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&family=Figtree:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root{
+  --bg:#0c0e13;--bg2:#12151d;--bg3:#191d28;--bg4:#1f2435;--bg5:#252b3d;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--border3:rgba(255,255,255,0.2);
+  --text:#dde1f0;--text2:#7e849e;--text3:#484f68;--text4:#2e3349;
+  --dem:#3d8ef0;--dem2:#6aaeff;--dem3:#1a5fb5;--dem4:rgba(61,142,240,0.12);
+  --rep:#e84545;--rep2:#ff7575;--rep3:#a82222;--rep4:rgba(232,69,69,0.12);
+  --gold:#f0c040;--gold2:rgba(240,192,64,0.10);
+  --font-h:'Barlow Condensed',sans-serif;
+  --font-b:'Figtree',sans-serif;
+  --font-m:'DM Mono',monospace;
+  --r:8px;--rl:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);font-size:14px;line-height:1.5;min-height:100vh}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:0 18px;height:50px;position:sticky;top:0;z-index:200}
+.nav-brand{font-family:var(--font-h);font-size:17px;font-weight:800;letter-spacing:.05em;white-space:nowrap;display:flex;align-items:center;gap:7px}
+.nav-star{color:var(--gold)}
+.nav-tabs{display:flex;gap:2px;flex:1}
+.nav-tab{background:none;border:none;color:var(--text2);font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:5px 13px;border-radius:6px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.nav-tab:hover{color:var(--text);background:var(--bg3)}
+.nav-tab.active{color:var(--gold);background:var(--gold2)}
+.nav-ts{font-family:var(--font-m);font-size:10px;color:var(--text3);white-space:nowrap}
+.panel{display:none;padding:20px;max-width:1160px;margin:0 auto}
+.panel.active{display:block}
+.matchup-row{display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.match-lbl{font-family:var(--font-h);font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--text3)}
+.mbtn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:.04em;padding:6px 15px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.mbtn:hover{color:var(--text);border-color:var(--border2)}
+.mbtn.active{background:var(--bg4);border-color:var(--gold);color:var(--gold)}
+.hgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.hcard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px 16px}
+.hcard-lbl{font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.hcard-val{font-family:var(--font-h);font-size:30px;font-weight:800;line-height:1}
+.hcard-sub{font-size:11px;color:var(--text2);margin-top:3px}
+.dc{color:var(--dem2)}.rc{color:var(--rep2)}.gc{color:var(--gold)}
+.mbar-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;margin-bottom:16px}
+.mbar-labels{display:flex;justify-content:space-between;font-family:var(--font-h);font-size:13px;font-weight:700;margin-bottom:8px}
+.mbar-track{height:24px;background:var(--bg3);border-radius:12px;overflow:hidden;display:flex;position:relative}
+.mbar-d{background:linear-gradient(90deg,var(--dem3),var(--dem));height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:7px;transition:width .5s}
+.mbar-r{background:linear-gradient(90deg,var(--rep),var(--rep3));height:100%;display:flex;align-items:center;padding-left:7px;transition:width .5s}
+.mbar-pct{font-family:var(--font-h);font-size:11px;font-weight:700;color:#fff}
+.mbar-50{position:absolute;left:50%;top:0;bottom:0;width:2px;background:var(--gold)}
+.mbar-sub{display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text3)}
+.sec-title{font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text2);border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:12px;display:flex;align-items:center;gap:9px}
+.sec-title em{color:var(--gold);font-size:10px;font-weight:500;text-transform:none;letter-spacing:0;font-family:var(--font-b);font-style:normal}
+.chart-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:16px;margin-bottom:16px}
+.chart-legend{display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.leg-dot{width:9px;height:9px;border-radius:2px}
+.ptable-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;margin-bottom:16px}
+.ptoolbar{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--border);gap:8px;flex-wrap:wrap}
+.pfilt{display:flex;gap:5px;flex-wrap:wrap}
+.filt-btn{background:var(--bg3);border:1px solid var(--border);color:var(--text2);font-size:11px;padding:3px 8px;border-radius:4px;cursor:pointer;transition:all .12s}
+.filt-btn:hover{border-color:var(--border2);color:var(--text)}
+.filt-btn.active{background:var(--gold2);border-color:var(--gold);color:var(--gold)}
+.pcnt{font-size:11px;color:var(--text3);font-family:var(--font-m)}
+table{width:100%;border-collapse:collapse}
+thead th{font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 11px;text-align:left;background:var(--bg3);border-bottom:1px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap}
+thead th:hover{color:var(--text2)}
+thead th.sorted{color:var(--gold)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:8px 11px;font-size:12px}
+.grade-badge{display:inline-block;font-family:var(--font-m);font-size:10px;padding:2px 6px;border-radius:3px}
+.gA{background:rgba(46,207,132,.12);color:#2ecf84;border:1px solid rgba(46,207,132,.25)}
+.gB{background:rgba(61,142,240,.12);color:var(--dem2);border:1px solid rgba(61,142,240,.25)}
+.gC{background:rgba(240,192,64,.12);color:var(--gold);border:1px solid rgba(240,192,64,.25)}
+.gD{background:rgba(232,69,69,.12);color:var(--rep2);border:1px solid rgba(232,69,69,.25)}
+.dv{color:var(--dem2);font-family:var(--font-m)}.rv{color:var(--rep2);font-family:var(--font-m)}
+.sp-d{color:var(--dem2);font-family:var(--font-m);font-size:11px}
+.sp-r{color:var(--rep2);font-family:var(--font-m);font-size:11px}
+.spon-n{font-size:10px;padding:1px 5px;border-radius:3px;background:var(--bg3);color:var(--text3)}
+.spon-d{font-size:10px;padding:1px 5px;border-radius:3px;background:var(--dem4);color:var(--dem2)}
+.spon-r{font-size:10px;padding:1px 5px;border-radius:3px;background:var(--rep4);color:var(--rep2)}
+.mini-bar{height:6px;border-radius:3px;display:flex;overflow:hidden;width:80px;margin-top:4px;align-items:stretch}
+.mb-d{background:var(--dem);height:6px;flex-shrink:0}.mb-r{background:var(--rep);height:6px;flex-shrink:0}.mb-u{background:var(--bg4);height:6px;flex-shrink:0}
+.del-btn{background:none;border:none;color:var(--text3);cursor:pointer;font-size:13px;padding:2px 4px;border-radius:3px;transition:color .12s}
+.del-btn:hover{color:var(--rep2)}
+/* ADD POLL */
+.add-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:16px 18px;margin-bottom:16px}
+.apf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:9px;margin-top:10px}
+.apf-group{display:flex;flex-direction:column;gap:3px}
+.apf-lbl{font-size:10px;color:var(--text3);font-family:var(--font-h);font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.apf-input{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-b);font-size:12px;padding:6px 8px;border-radius:var(--r);width:100%;transition:border-color .15s}
+.apf-input:focus{outline:none;border-color:var(--dem2)}
+.apf-select{background:var(--bg3);border:1px solid var(--border);color:var(--text);font-family:var(--font-b);font-size:12px;padding:6px 8px;border-radius:var(--r);width:100%;cursor:pointer}
+.apf-actions{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.btn-add{background:var(--dem3);border:1px solid var(--dem);color:#fff;font-family:var(--font-h);font-size:13px;font-weight:700;letter-spacing:.04em;padding:7px 18px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.btn-add:hover{background:var(--dem)}
+.btn-cancel{background:none;border:1px solid var(--border2);color:var(--text2);font-family:var(--font-h);font-size:12px;font-weight:600;padding:6px 13px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.btn-cancel:hover{border-color:var(--rep2);color:var(--rep2)}
+.apf-err{font-size:11px;color:var(--rep2)}
+/* WEIGHTS */
+.wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px;margin-top:12px}
+.wrow{display:flex;flex-direction:column;gap:4px}
+.wrow-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.wrow-name{font-size:13px;color:var(--text)}
+.wrow-right{display:flex;align-items:center;gap:7px}
+.wrow-val{font-family:var(--font-m);font-size:12px;color:var(--gold);min-width:34px;text-align:right}
+.wrow-note{font-size:10px;color:var(--text3)}
+input[type=range]{width:100%;accent-color:var(--gold);cursor:pointer}
+.reset-btn{background:var(--bg4);border:1px solid var(--border2);color:var(--text2);font-family:var(--font-h);font-size:12px;font-weight:600;letter-spacing:.03em;padding:6px 14px;border-radius:var(--r);cursor:pointer;transition:all .15s}
+.reset-btn:hover{border-color:var(--gold);color:var(--gold)}
+/* SWINGOMETER */
+.swing-outer{display:grid;grid-template-columns:1fr 400px;gap:16px;align-items:start}
+.scard{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:15px 17px;margin-bottom:12px}
+.scard:last-child{margin-bottom:0}
+.scard-title{font-family:var(--font-h);font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text3);margin-bottom:11px}
+.dial-wrap{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:14px;text-align:center;margin-bottom:12px}
+#swingCanvas{width:100%;max-width:360px;display:block;margin:0 auto}
+.sw-res-main{font-family:var(--font-h);font-size:36px;font-weight:800;line-height:1;margin-top:10px}
+.sw-res-sub{font-size:11px;color:var(--text2);margin-top:3px}
+.swb{display:inline-block;padding:3px 11px;border-radius:4px;font-family:var(--font-h);font-size:11px;font-weight:700;margin-top:5px}
+.sw-d{background:var(--dem4);color:var(--dem2);border:1px solid rgba(61,142,240,.3)}
+.sw-r{background:var(--rep4);color:var(--rep2);border:1px solid rgba(232,69,69,.3)}
+.sw-t{background:var(--gold2);color:var(--gold);border:1px solid rgba(240,192,64,.3)}
+.bl-opt{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--r);border:1px solid var(--border);cursor:pointer;transition:all .15s;margin-bottom:5px}
+.bl-opt:hover{border-color:var(--border2);background:var(--bg3)}
+.bl-opt.active{border-color:var(--gold);background:var(--gold2)}
+.bl-opt input[type=radio]{accent-color:var(--gold)}
+.bl-name{font-size:12px;color:var(--text);font-weight:500}
+.bl-res{font-size:10px;font-family:var(--font-m)}
+.sl-row{margin-bottom:10px}
+.sl-hd{display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px}
+.sl-lbl{color:var(--text2)}.sl-val{font-family:var(--font-m);color:var(--gold)}
+.sl-sub{display:flex;justify-content:space-between;font-size:9px;color:var(--text4);margin-top:1px}
+.hbars{display:flex;flex-direction:column;gap:5px}
+.hbar-row{display:flex;align-items:center;gap:7px;font-size:10px}
+.hbar-lbl{width:95px;color:var(--text3);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar-track{flex:1;height:13px;background:var(--bg3);border-radius:3px;overflow:hidden;display:flex;position:relative}
+.hbar-d{background:var(--dem);height:100%;display:flex;align-items:center;justify-content:flex-end}
+.hbar-r{background:var(--rep);height:100%;display:flex;align-items:center}
+.hbar-pct{font-size:8px;color:#fff;padding:0 3px;font-family:var(--font-m)}
+.hbar-50{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--gold)}
+/* MAP */
+#txMapSvg{width:100%;height:auto;display:block}
+.county-path{stroke:#0c0e13;stroke-width:.35;cursor:pointer;transition:opacity .15s}
+.county-path:hover{stroke:#fff;stroke-width:.9;opacity:.85}
+#mapTT{position:fixed;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:7px 11px;font-size:12px;pointer-events:none;display:none;z-index:500;min-width:130px}
+.map-legend{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:10px;color:var(--text3)}
+.map-legend-bar{height:8px;border-radius:3px;flex:1;background:linear-gradient(90deg,var(--rep),#666,var(--dem))}
+/* METHODOLOGY */
+.meth-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.meth-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:16px}
+.meth-card h3{font-family:var(--font-h);font-size:15px;font-weight:700;color:var(--text);margin-bottom:9px}
+.meth-card p,.meth-card li{font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:5px}
+.meth-card ul{padding-left:14px}
+.meth-card li{margin-bottom:3px}
+.gmt{width:100%;border-collapse:collapse;margin-top:7px}
+.gmt th,.gmt td{padding:5px 8px;font-size:11px;border-bottom:1px solid var(--border);text-align:left}
+.gmt th{color:var(--text3);font-family:var(--font-h);font-size:10px;letter-spacing:.07em;text-transform:uppercase}
+@media(max-width:900px){
+  .hgrid{grid-template-columns:1fr 1fr}
+  .swing-outer{grid-template-columns:1fr}
+  .meth-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-brand"><span class="nav-star">★</span> TEXAS SENATE 2026</div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPanel('agg',this)">Poll Tracker</button>
+    <button class="nav-tab" onclick="showPanel('swing',this)">Swingometer</button>
+    <button class="nav-tab" onclick="showPanel('weights',this)">Weights</button>
+    <button class="nav-tab" onclick="showPanel('meth',this)">Methodology</button>
+  </div>
+  <div class="nav-ts">Updated May 13, 2026</div>
+</nav>
+<div id="mapTT"></div>
+
+<!-- AGGREGATOR -->
+<div id="panel-agg" class="panel active">
+  <div class="matchup-row">
+    <span class="match-lbl">Matchup:</span>
+    <button class="mbtn active" id="agg-btn-c" onclick="setMatchup('cornyn',this)">Talarico vs Cornyn</button>
+    <button class="mbtn" id="agg-btn-p" onclick="setMatchup('paxton',this)">Talarico vs Paxton</button>
+    <span class="match-lbl" style="margin-left:10px">Add poll:</span>
+    <button class="mbtn" onclick="toggleAddPoll()">+ New Poll</button>
+  </div>
+  <div id="addPollSection" style="display:none">
+    <div class="add-wrap">
+      <div class="sec-title">Add a new poll <em>fill all fields — grade auto-sets weight multiplier</em></div>
+      <div class="apf-grid">
+        <div class="apf-group"><label class="apf-lbl">Pollster name</label><input class="apf-input" id="ap-pollster" placeholder="e.g. Emerson College"></div>
+        <div class="apf-group"><label class="apf-lbl">Field date</label><input class="apf-input" type="date" id="ap-date"></div>
+        <div class="apf-group"><label class="apf-lbl">Silver Bulletin grade</label>
+          <select class="apf-select" id="ap-grade">
+            <option value="A+">A+  (4.00×)</option><option value="A" selected>A   (3.20×)</option>
+            <option value="A-">A-  (2.70×)</option><option value="A/B">A/B (2.20×)</option>
+            <option value="B+">B+  (1.90×)</option><option value="B">B   (1.50×)</option>
+            <option value="B-">B-  (1.20×)</option><option value="B/C">B/C (1.00×)</option>
+            <option value="C+">C+  (0.85×)</option><option value="C">C   (0.70×)</option>
+            <option value="C-">C-  (0.55×)</option><option value="D">D   (0.40×)</option>
+            <option value="D-">D-  (0.25×)</option>
+          </select>
+        </div>
+        <div class="apf-group"><label class="apf-lbl">Sample size</label><input class="apf-input" type="number" id="ap-sample" placeholder="e.g. 800" min="50" max="5000"></div>
+        <div class="apf-group"><label class="apf-lbl">Population</label>
+          <select class="apf-select" id="ap-type">
+            <option value="LV">LV — Likely Voters</option>
+            <option value="RV" selected>RV — Registered Voters</option>
+            <option value="A">A — All Adults</option>
+          </select>
+        </div>
+        <div class="apf-group"><label class="apf-lbl">Applies to matchup</label>
+          <select class="apf-select" id="ap-matchup">
+            <option value="both" selected>Both matchups</option>
+            <option value="cornyn">vs Cornyn only</option>
+            <option value="paxton">vs Paxton only</option>
+          </select>
+        </div>
+        <div class="apf-group"><label class="apf-lbl">Sponsor / client</label>
+          <select class="apf-select" id="ap-sponsor">
+            <option value="N" selected>None / nonpartisan</option>
+            <option value="D">D-affiliated</option>
+            <option value="R">R-affiliated</option>
+          </select>
+        </div>
+        <div class="apf-group"><label class="apf-lbl">Talarico (D) %</label><input class="apf-input" type="number" id="ap-dem" placeholder="e.g. 44" min="10" max="90" step=".1"></div>
+        <div class="apf-group"><label class="apf-lbl">Republican % (Cornyn / Paxton)</label><input class="apf-input" type="number" id="ap-rep" placeholder="e.g. 41" min="10" max="90" step=".1"></div>
+      </div>
+      <div class="apf-actions">
+        <button class="btn-add" onclick="addPoll()">+ Add to tracker</button>
+        <button class="btn-cancel" onclick="toggleAddPoll()">Cancel</button>
+        <span class="apf-err" id="apf-err"></span>
+      </div>
+    </div>
+  </div>
+  <div class="hgrid" id="hcards"></div>
+  <div id="mbar-agg"></div>
+  <div class="sec-title" style="margin-top:2px">Polling trend <em>weighted average over time</em></div>
+  <div class="chart-wrap">
+    <div class="chart-legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--dem)"></div><span>Talarico (D)</span></div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--rep)"></div><span id="leg-rep">Cornyn (R)</span></div>
+    </div>
+    <div style="position:relative;height:240px"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="sec-title">All polls <em id="poll-sub">Talarico vs Cornyn</em></div>
+  <div class="ptable-wrap">
+    <div class="ptoolbar">
+      <div class="pfilt" id="pfilt">
+        <button class="filt-btn active" onclick="filterP('all',this)">All</button>
+        <button class="filt-btn" onclick="filterP('A',this)">A-rated</button>
+        <button class="filt-btn" onclick="filterP('LV',this)">Likely Voters</button>
+        <button class="filt-btn" onclick="filterP('nonpartisan',this)">Nonpartisan</button>
+      </div>
+      <span class="pcnt" id="pcnt"></span>
+    </div>
+    <table>
+      <thead><tr>
+        <th onclick="sortP('date')">Date</th>
+        <th onclick="sortP('pollster')">Pollster</th>
+        <th onclick="sortP('grade')">Grade</th>
+        <th onclick="sortP('mult')">Wt. ×</th>
+        <th onclick="sortP('sample')">n</th>
+        <th onclick="sortP('type')">Pop.</th>
+        <th onclick="sortP('sponsor')">Sponsor</th>
+        <th onclick="sortP('dem')">D%</th>
+        <th onclick="sortP('rep')">R%</th>
+        <th onclick="sortP('spread')">Spread</th>
+        <th>Bar</th>
+        <th></th>
+      </tr></thead>
+      <tbody id="ptbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SWINGOMETER -->
+<div id="panel-swing" class="panel">
+  <div class="sec-title">2026 Texas Senate Swingometer <em>county map + hypothetical shift simulator</em></div>
+  <div class="matchup-row" style="margin-bottom:14px">
+    <span class="match-lbl">GOP opponent:</span>
+    <button class="mbtn active" id="sw-btn-c" onclick="setSwMatchup('cornyn')">vs Cornyn</button>
+    <button class="mbtn" id="sw-btn-p" onclick="setSwMatchup('paxton')">vs Paxton</button>
+  </div>
+  <div class="swing-outer">
+    <div>
+      <div class="scard" style="padding:13px">
+        <div class="scard-title">Texas county map — projected result</div>
+        <svg id="txMapSvg" viewBox="0 0 600 480"></svg>
+        <div class="map-legend"><span style="color:var(--rep2)">Strong R</span><div class="map-legend-bar"></div><span style="color:var(--dem2)">Strong D</span></div>
+      </div>
+      <div class="dial-wrap">
+        <canvas id="swingCanvas" width="360" height="200"></canvas>
+        <div class="sw-res-main" id="sw-main">—</div>
+        <div id="sw-badge"></div>
+        <div class="sw-res-sub" id="sw-sub"></div>
+      </div>
+      <div class="scard">
+        <div class="scard-title">Historical comparison</div>
+        <div class="hbars" id="histBars"></div>
+      </div>
+    </div>
+    <div>
+      <div class="scard">
+        <div class="scard-title">Baseline election</div>
+        <div id="blSelect"></div>
+      </div>
+      <div class="scard">
+        <div class="scard-title">National environment</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">Uniform swing (D+ ↑ / R+ ↓)</span><span class="sl-val" id="sv-uniform">0.0</span></div>
+          <input type="range" min="-20" max="20" step=".5" value="0" id="sl-uniform" oninput="updateSwing()">
+          <div class="sl-sub"><span>R+20</span><span>Even</span><span>D+20</span></div>
+        </div>
+      </div>
+      <div class="scard">
+        <div class="scard-title">Demographic adjustments</div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">Latino turnout / swing</span><span class="sl-val" id="sv-latino">0.0</span></div>
+          <input type="range" min="-15" max="15" step=".5" value="0" id="sl-latino" oninput="updateSwing()">
+          <div class="sl-sub"><span>R+15</span><span>Baseline</span><span>D+15</span></div>
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">Suburban college-educated</span><span class="sl-val" id="sv-suburban">0.0</span></div>
+          <input type="range" min="-15" max="15" step=".5" value="0" id="sl-suburban" oninput="updateSwing()">
+          <div class="sl-sub"><span>R+15</span><span>Baseline</span><span>D+15</span></div>
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">Rural mobilization</span><span class="sl-val" id="sv-rural">0.0</span></div>
+          <input type="range" min="-15" max="15" step=".5" value="0" id="sl-rural" oninput="updateSwing()">
+          <div class="sl-sub"><span>D+15</span><span>Baseline</span><span>R+15</span></div>
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">Independent voter lean</span><span class="sl-val" id="sv-indie">0.0</span></div>
+          <input type="range" min="-15" max="15" step=".5" value="0" id="sl-indie" oninput="updateSwing()">
+          <div class="sl-sub"><span>R+15</span><span>Baseline</span><span>D+15</span></div>
+        </div>
+        <div class="sl-row">
+          <div class="sl-hd"><span class="sl-lbl">GOP crossover (runoff fallout)</span><span class="sl-val" id="sv-cross">0.0</span></div>
+          <input type="range" min="0" max="10" step=".5" value="0" id="sl-cross" oninput="updateSwing()">
+          <div class="sl-sub"><span>0%</span><span>Baseline</span><span>+10% D</span></div>
+        </div>
+        <button class="reset-btn" style="width:100%;margin-top:6px" onclick="resetSwing()">↺ Reset all sliders</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WEIGHTS -->
+<div id="panel-weights" class="panel">
+  <div class="sec-title">Pollster weight editor <em>Silver Bulletin grade-based multipliers — adjust for hypothetical scenarios</em></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px;flex-wrap:wrap">
+    <p style="font-size:12px;color:var(--text2);flex:1;max-width:700px">Each pollster's default weight is set by their Silver Bulletin letter grade (A+ = 4.00×, down to D- = 0.25×). Drag any slider to override and simulate alternative scenarios. The weighted average below updates live.</p>
+    <button class="reset-btn" onclick="resetWeights()">↺ Reset to grade defaults</button>
+  </div>
+  <div class="wgrid" id="wgrid"></div>
+  <div class="sec-title" style="margin-top:18px">Live weighted average <em>recalculates with your custom multipliers</em></div>
+  <div class="hgrid" id="whcards"></div>
+  <div id="wmbar"></div>
+</div>
+
+<!-- METHODOLOGY -->
+<div id="panel-meth" class="panel">
+  <div class="meth-grid">
+    <div class="meth-card">
+      <h3>How polls are weighted</h3>
+      <p>Each poll receives a composite weight combining three factors from Nate Silver's FiveThirtyEight methodology:</p>
+      <ul>
+        <li><strong style="color:var(--text)">Grade multiplier (50%)</strong> — Silver Bulletin letter grade. A+ = 4.00×, D- = 0.25×. Replaces the old simple A/B/C/D system with the full 13-tier scale.</li>
+        <li><strong style="color:var(--text)">Recency decay (35%)</strong> — Exponential. This week = 100%. 30 days old ≈ 50%. 60 days ≈ 25%. Polls over 90 days are excluded unless fewer than 3 remain.</li>
+        <li><strong style="color:var(--text)">Sample size (15%)</strong> — Log-scaled. 1,000-voter poll ≈ 2× weight of 250-voter poll. Per Silver's 2024 update, sample size is de-emphasized since modern sampling deviates from classical assumptions.</li>
+      </ul>
+      <p style="margin-top:4px">A <strong style="color:var(--text)">house-effect correction of +2.5R</strong> is applied to the final average, accounting for Texas Democrats' persistent polling overperformance since 2018 (avg ~+3–5pt D overshoot).</p>
+    </div>
+    <div class="meth-card">
+      <h3>Grade multipliers — Silver Bulletin scale</h3>
+      <p>Based on Predictive Plus-Minus scores from Silver's January 2026 update. Negative P+M = more accurate than average.</p>
+      <table class="gmt">
+        <thead><tr><th>Grade</th><th>Mult.</th><th>Criteria</th><th>TX examples</th></tr></thead>
+        <tbody id="gradeBody"></tbody>
+      </table>
+    </div>
+    <div class="meth-card">
+      <h3>Swingometer methodology</h3>
+      <p>Starts from the selected historical baseline's D% and R%, then applies slider shifts weighted by each demographic's share of the Texas electorate:</p>
+      <ul>
+        <li>Latino shift: 40% TX weight — Rio Grande Valley, El Paso, SA</li>
+        <li>Suburban college: 20% TX weight — Collin, Fort Bend, Williamson</li>
+        <li>Rural mobilization: 25% TX weight — inverse (R benefits)</li>
+        <li>Independent lean: 15% TX weight — cross-pressured exurban</li>
+        <li>GOP crossover: direct D addition — models runoff defectors. TPOR found ~24% of Cornyn voters say they'd back Talarico vs Paxton.</li>
+      </ul>
+      <p>County map applies each swing at county level, scaled by county type (urban/suburban/rural/Latino).</p>
+    </div>
+    <div class="meth-card">
+      <h3>Context & caveats</h3>
+      <ul>
+        <li>No Democrat has won a Texas statewide race since 1994.</li>
+        <li>Recent D polling overshoot: ~+3–5pt avg vs actual results.</li>
+        <li>Cook Political Report: <strong style="color:var(--text)">"Likely Republican."</strong></li>
+        <li>GOP nominee TBD — May 26 runoff: Cornyn vs Paxton.</li>
+        <li>TPOR directed by Democratic strategist Luke Warford — treat with elevated skepticism despite nonpartisan branding (grade B).</li>
+        <li>UT/Texas Politics Project surveys RVs not LVs — historically inflates D numbers by 2–4pt.</li>
+        <li>Emerson grade: A (SB Jan 2026). Historically solid on TX (called Cruz +8 in 2018).</li>
+        <li>Quinnipiac: A+ — largest sample, live-caller, highest default weight.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+const GRADE_MULTS={'A+':4.0,'A':3.2,'A-':2.7,'A/B':2.2,'B+':1.9,'B':1.5,'B-':1.2,'B/C':1.0,'C+':0.85,'C':0.7,'C-':0.55,'D':0.4,'D-':0.25};
+const GRADE_CSS={'A+':'gA','A':'gA','A-':'gA','A/B':'gA','B+':'gB','B':'gB','B-':'gB','B/C':'gB','C+':'gC','C':'gC','C-':'gC','D':'gD','D-':'gD'};
+const GRADE_INFO=[
+  {g:'A+',m:4.0,d:'Top accuracy, AAPOR member, full transparency',e:'Quinnipiac'},
+  {g:'A', m:3.2,d:'Excellent track record, live-call or rigorous online',e:'Emerson, NYT/Siena'},
+  {g:'A-',m:2.7,d:'Strong record, minor transparency gaps',e:'UT/TX Politics Proj.'},
+  {g:'A/B',m:2.2,d:'Good record, limited TX history',e:''},
+  {g:'B+',m:1.9,d:'Solid, some methodological caveats',e:''},
+  {g:'B', m:1.5,d:'Average accuracy, IVR or mixed-mode',e:'TPOR/Slingshot'},
+  {g:'B-',m:1.2,d:'Slightly below avg, transparency concerns',e:''},
+  {g:'B/C',m:1.0,d:'Mixed record or few polls',e:''},
+  {g:'C+',m:0.85,d:'Limited track record',e:''},
+  {g:'C', m:0.7,d:'Below average, methodological concerns',e:'co/efficient'},
+  {g:'C-',m:0.55,d:'Poor transparency or accuracy',e:''},
+  {g:'D', m:0.4,d:'Partisan sponsor or poor record',e:'Internal campaign'},
+  {g:'D-',m:0.25,d:'Near-banned, severe accuracy issues',e:''},
+];
+
+const BASELINES=[
+  {id:'senate2024',label:'2024 Senate',sub:'Cruz 53% vs Allred 45%',dem:45,rep:53,Rm:8},
+  {id:'pres2024',label:'2024 Presidential',sub:'Trump 56% vs Harris 42%',dem:42,rep:56,Rm:14},
+  {id:'senate2020',label:'2020 Senate',sub:'Cornyn 54% vs Hegar 44%',dem:44,rep:54,Rm:9.6},
+  {id:'pres2020',label:'2020 Presidential',sub:'Trump 52% vs Biden 46%',dem:46,rep:52,Rm:5.6},
+  {id:'senate2018',label:'2018 Senate',sub:"Cruz 50.9% vs O'Rourke 48.3%",dem:48.3,rep:50.9,Rm:2.6},
+];
+
+let pollsCornyn=[
+  {id:'p1',date:'2026-04-17',pollster:'TPOR / Slingshot',grade:'B',sample:1865,type:'LV',sponsor:'N',dem:44,rep:41,undecided:15,custom:false},
+  {id:'p2',date:'2026-04-10',pollster:'UT / TX Politics Project',grade:'A-',sample:1200,type:'RV',sponsor:'N',dem:40,rep:33,undecided:27,custom:false},
+  {id:'p3',date:'2026-01-15',pollster:'Emerson / Nexstar',grade:'A',sample:1000,type:'LV',sponsor:'N',dem:43,rep:48,undecided:9,custom:false},
+  {id:'p4',date:'2025-11-20',pollster:'co/efficient',grade:'C',sample:600,type:'RV',sponsor:'N',dem:41,rep:46,undecided:13,custom:false},
+  {id:'p5',date:'2025-09-10',pollster:'Quinnipiac University',grade:'A+',sample:1350,type:'RV',sponsor:'N',dem:39,rep:49,undecided:12,custom:false},
+  {id:'p6',date:'2025-08-15',pollster:'Emerson College',grade:'A',sample:950,type:'LV',sponsor:'N',dem:40,rep:51,undecided:9,custom:false},
+];
+let pollsPaxton=[
+  {id:'p1',date:'2026-04-17',pollster:'TPOR / Slingshot',grade:'B',sample:1865,type:'LV',sponsor:'N',dem:46,rep:41,undecided:13,custom:false},
+  {id:'p2',date:'2026-04-10',pollster:'UT / TX Politics Project',grade:'A-',sample:1200,type:'RV',sponsor:'N',dem:42,rep:34,undecided:24,custom:false},
+  {id:'p3',date:'2026-01-15',pollster:'Emerson / Nexstar',grade:'A',sample:1000,type:'LV',sponsor:'N',dem:46,rep:46,undecided:8,custom:false},
+  {id:'p4',date:'2025-11-20',pollster:'co/efficient',grade:'C',sample:600,type:'RV',sponsor:'N',dem:42,rep:45,undecided:13,custom:false},
+  {id:'p5',date:'2025-08-15',pollster:'Emerson College',grade:'A',sample:950,type:'LV',sponsor:'N',dem:41,rep:50,undecided:9,custom:false},
+];
+
+let matchup='cornyn',swMatchup='cornyn',pFilter='all',pSortKey='date',pSortDir=-1;
+let pollsterOvr={},trendChart=null,activeBaseline='senate2024',txGeo=null;
+let pollIdCtr=100;
+
+function getPolls(){return matchup==='cornyn'?pollsCornyn:pollsPaxton}
+function getRepName(){return matchup==='cornyn'?'Cornyn (R)':'Paxton (R)'}
+
+function gradeFamily(g){if(['A+','A','A-','A/B'].includes(g))return'A';if(['B+','B','B-','B/C'].includes(g))return'B';if(['C+','C','C-'].includes(g))return'C';return'D';}
+function recencyW(d){const days=(new Date('2026-05-13')-new Date(d))/864e5;return Math.max(0.05,Math.exp(-days/45));}
+function sampleW(n){return Math.log10(Math.max(n,100))/Math.log10(1000);}
+function pollMult(p){const gm=GRADE_MULTS[p.grade]||1.0;return pollsterOvr[p.pollster]!=null?pollsterOvr[p.pollster]:gm;}
+
+function computeAvg(polls,ovr){
+  let wD=0,wR=0,tot=0;
+  polls.forEach(p=>{
+    const pw=ovr&&ovr[p.pollster]!=null?ovr[p.pollster]:(GRADE_MULTS[p.grade]||1.0);
+    const w=pw*recencyW(p.date)*sampleW(p.sample);
+    wD+=p.dem*w;wR+=p.rep*w;tot+=w;
+  });
+  if(!tot)return{dem:45,rep:48};
+  return{dem:Math.round((wD/tot-1.25)*10)/10, rep:Math.round((wR/tot+1.25)*10)/10};
+}
+
+function setMatchup(m,btn){
+  matchup=m;
+  document.getElementById('agg-btn-c').classList.toggle('active',m==='cornyn');
+  document.getElementById('agg-btn-p').classList.toggle('active',m==='paxton');
+  document.getElementById('leg-rep').textContent=getRepName();
+  document.getElementById('poll-sub').textContent='Talarico vs '+(m==='cornyn'?'Cornyn':'Paxton');
+  renderAgg();
+}
+function setSwMatchup(m){
+  swMatchup=m;
+  document.getElementById('sw-btn-c').classList.toggle('active',m==='cornyn');
+  document.getElementById('sw-btn-p').classList.toggle('active',m==='paxton');
+  updateSwing();
+}
+
+function renderHeaderCards(avg,repName,targetId){
+  const spr=avg.dem-avg.rep;
+  const sprStr=spr>0?`D +${Math.abs(spr).toFixed(1)}`:`R +${Math.abs(spr).toFixed(1)}`;
+  const sprCls=spr>0?'dc':'rc';
+  const polls=getPolls();
+  const latest=polls.length?polls.reduce((a,b)=>a.date>b.date?a:b):null;
+  document.getElementById(targetId).innerHTML=`
+    <div class="hcard"><div class="hcard-lbl">Weighted avg</div><div class="hcard-val ${sprCls}">${sprStr}</div><div class="hcard-sub">w/ house effects adj.</div></div>
+    <div class="hcard"><div class="hcard-lbl">Talarico (D)</div><div class="hcard-val dc">${avg.dem.toFixed(1)}%</div><div class="hcard-sub">Weighted avg</div></div>
+    <div class="hcard"><div class="hcard-lbl">${repName}</div><div class="hcard-val rc">${avg.rep.toFixed(1)}%</div><div class="hcard-sub">Weighted avg</div></div>
+    <div class="hcard"><div class="hcard-lbl">Polls tracked</div><div class="hcard-val gc">${polls.length}</div><div class="hcard-sub">Latest: ${latest?latest.date:'—'}</div></div>`;
+}
+function renderMbar(avg,repName,targetId){
+  const tot=avg.dem+avg.rep;
+  const dP=(avg.dem/tot*100).toFixed(1),rP=(avg.rep/tot*100).toFixed(1);
+  const spr=avg.dem-avg.rep;
+  const sprStr=spr>0?`D +${spr.toFixed(1)}`:`R +${Math.abs(spr).toFixed(1)}`;
+  document.getElementById(targetId).innerHTML=`<div class="mbar-wrap">
+    <div class="mbar-labels"><span class="dc">Talarico (D) ${avg.dem.toFixed(1)}%</span><span style="color:var(--text3);font-size:11px">${sprStr}</span><span class="rc">${repName} ${avg.rep.toFixed(1)}%</span></div>
+    <div class="mbar-track"><div class="mbar-d" style="width:${dP}%"><span class="mbar-pct">${dP}%</span></div><div class="mbar-r" style="width:${rP}%"><span class="mbar-pct">${rP}%</span></div><div class="mbar-50"></div></div>
+    <div class="mbar-sub"><span>${dP}% two-party</span><span>50% to win</span><span>${rP}% two-party</span></div>
+  </div>`;
+}
+function renderTrend(polls){
+  const s=[...polls].sort((a,b)=>a.date.localeCompare(b.date));
+  if(trendChart)trendChart.destroy();
+  trendChart=new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels:s.map(p=>p.date.slice(5)),datasets:[
+      {label:'D',data:s.map(p=>p.dem),borderColor:'#3d8ef0',tension:.4,pointRadius:5,pointBackgroundColor:'#3d8ef0',fill:false,borderWidth:2},
+      {label:'R',data:s.map(p=>p.rep),borderColor:'#e84545',tension:.4,pointRadius:5,pointBackgroundColor:'#e84545',fill:false,borderWidth:2},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{mode:'index',intersect:false,backgroundColor:'#191d28',borderColor:'#252b3d',borderWidth:1,titleColor:'#7e849e',bodyColor:'#dde1f0'}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#484f68',font:{family:'DM Mono',size:10}}},
+              y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#484f68',font:{family:'DM Mono',size:10},callback:v=>v+'%'},min:28,max:62}}}
+  });
+}
+function filterP(f,btn){pFilter=f;document.querySelectorAll('#pfilt .filt-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderPollTable();}
+function sortP(k){if(pSortKey===k)pSortDir*=-1;else{pSortKey=k;pSortDir=-1;}renderPollTable();}
+function getFiltPolls(){
+  const p=getPolls();
+  if(pFilter==='all')return p;
+  if(pFilter==='A')return p.filter(x=>gradeFamily(x.grade)==='A');
+  if(pFilter==='LV')return p.filter(x=>x.type==='LV');
+  if(pFilter==='nonpartisan')return p.filter(x=>x.sponsor==='N');
+  return p;
+}
+function deletePoll(id){
+  pollsCornyn=pollsCornyn.filter(p=>p.id!==id);
+  pollsPaxton=pollsPaxton.filter(p=>p.id!==id);
+  renderAgg();renderWeightPanel();
+}
+function renderPollTable(){
+  const polls=[...getFiltPolls()].sort((a,b)=>{
+    let va,vb;
+    if(pSortKey==='spread'){va=a.dem-a.rep;vb=b.dem-b.rep;}
+    else if(pSortKey==='mult'){va=pollMult(a);vb=pollMult(b);}
+    else if(pSortKey==='grade'){va=GRADE_MULTS[a.grade]||1;vb=GRADE_MULTS[b.grade]||1;}
+    else{va=a[pSortKey];vb=b[pSortKey];}
+    if(typeof va==='string')return va.localeCompare(vb)*pSortDir;
+    return(va-vb)*pSortDir;
+  });
+  document.getElementById('pcnt').textContent=`${polls.length} poll${polls.length!==1?'s':''}`;
+  document.getElementById('ptbody').innerHTML=polls.map(p=>{
+    const spr=p.dem-p.rep,sprStr=spr>0?`D +${spr.toFixed(1)}`:`R +${Math.abs(spr).toFixed(1)}`;
+    const sprCls=spr>0?'sp-d':'sp-r';
+    const spon=p.sponsor==='D'?'<span class="spon-d">D-backed</span>':p.sponsor==='R'?'<span class="spon-r">R-backed</span>':'<span class="spon-n">None</span>';
+    const tot=p.dem+p.rep+(p.undecided||0);
+    const dB=Math.round(p.dem/tot*100),rB=Math.round(p.rep/tot*100),uB=Math.max(0,100-dB-rB);
+    const gc=GRADE_CSS[p.grade]||'gC';
+    const wt=pollMult(p).toFixed(2);
+    const del=p.custom?`<button class="del-btn" onclick="deletePoll('${p.id}')" title="Remove">✕</button>`:'';
+    return`<tr>
+      <td style="font-family:var(--font-m);font-size:10px;color:var(--text3)">${p.date}</td>
+      <td style="font-size:11px;color:var(--text)">${p.pollster}${p.custom?'<sup style="color:var(--gold);font-size:8px;margin-left:2px">NEW</sup>':''}</td>
+      <td><span class="grade-badge ${gc}">${p.grade}</span></td>
+      <td style="font-family:var(--font-m);font-size:10px;color:var(--gold)">${wt}×</td>
+      <td style="font-family:var(--font-m);font-size:10px;color:var(--text2)">${p.sample.toLocaleString()}</td>
+      <td style="font-size:10px;color:var(--text3)">${p.type}</td>
+      <td>${spon}</td>
+      <td class="dv">${p.dem}%</td>
+      <td class="rv">${p.rep}%</td>
+      <td class="${sprCls}">${sprStr}</td>
+      <td><div class="mini-bar"><div class="mb-d" style="width:${dB}%"></div><div class="mb-r" style="width:${rB}%"></div><div class="mb-u" style="width:${uB}%"></div></div></td>
+      <td>${del}</td>
+    </tr>`;
+  }).join('');
+}
+function renderAgg(){
+  const avg=computeAvg(getPolls());
+  renderHeaderCards(avg,getRepName(),'hcards');
+  renderMbar(avg,getRepName(),'mbar-agg');
+  renderTrend(getPolls());
+  renderPollTable();
+}
+
+function toggleAddPoll(){
+  const el=document.getElementById('addPollSection');
+  el.style.display=el.style.display==='none'?'block':'none';
+  document.getElementById('apf-err').textContent='';
+}
+function addPoll(){
+  const pollster=document.getElementById('ap-pollster').value.trim();
+  const date=document.getElementById('ap-date').value;
+  const grade=document.getElementById('ap-grade').value;
+  const sample=parseInt(document.getElementById('ap-sample').value);
+  const type=document.getElementById('ap-type').value;
+  const mu=document.getElementById('ap-matchup').value;
+  const sponsor=document.getElementById('ap-sponsor').value;
+  const dem=parseFloat(document.getElementById('ap-dem').value);
+  const rep=parseFloat(document.getElementById('ap-rep').value);
+  const err=document.getElementById('apf-err');
+  if(!pollster){err.textContent='Enter a pollster name.';return;}
+  if(!date){err.textContent='Enter a date.';return;}
+  if(isNaN(sample)||sample<50){err.textContent='Sample must be ≥ 50.';return;}
+  if(isNaN(dem)||dem<10||dem>90){err.textContent='Dem % must be 10–90.';return;}
+  if(isNaN(rep)||rep<10||rep>90){err.textContent='Rep % must be 10–90.';return;}
+  err.textContent='';
+  const undecided=Math.max(0,Math.round(100-dem-rep));
+  const id='c'+(++pollIdCtr);
+  const poll={id,date,pollster,grade,sample,type,sponsor,dem,rep,undecided,custom:true};
+  if(mu==='both'||mu==='cornyn')pollsCornyn.unshift({...poll,id:id+'_c'});
+  if(mu==='both'||mu==='paxton')pollsPaxton.unshift({...poll,id:id+'_p'});
+  renderAgg();renderWeightPanel();toggleAddPoll();
+  document.getElementById('ap-pollster').value='';
+  document.getElementById('ap-dem').value='';
+  document.getElementById('ap-rep').value='';
+  document.getElementById('ap-sample').value='';
+}
+
+function renderWeightPanel(){
+  const seen=new Set(),uniq=[];
+  [...pollsCornyn,...pollsPaxton].forEach(p=>{if(!seen.has(p.pollster)){seen.add(p.pollster);uniq.push(p);}});
+  document.getElementById('wgrid').innerHTML=uniq.map(p=>{
+    const gm=GRADE_MULTS[p.grade]||1.0;
+    const cur=pollsterOvr[p.pollster]!=null?pollsterOvr[p.pollster]:gm;
+    const gc=GRADE_CSS[p.grade]||'gC';
+    const key=p.pollster.replace(/\W/g,'_');
+    return`<div class="wrow">
+      <div class="wrow-top">
+        <span class="wrow-name">${p.pollster}</span>
+        <div class="wrow-right"><span class="grade-badge ${gc}" style="font-size:9px">${p.grade}</span><span class="wrow-val" id="wv_${key}">${cur.toFixed(2)}×</span></div>
+      </div>
+      <input type="range" min="0" max="6" step=".05" value="${cur.toFixed(2)}" oninput="updateW('${p.pollster}','${key}',this.value)">
+      <div class="wrow-note">Grade default: ${gm.toFixed(2)}× (Silver Bulletin ${p.grade})</div>
+    </div>`;
+  }).join('');
+  updateWeightResult();
+}
+function updateW(name,key,val){
+  pollsterOvr[name]=parseFloat(val);
+  document.getElementById('wv_'+key).textContent=parseFloat(val).toFixed(2)+'×';
+  updateWeightResult();
+}
+function updateWeightResult(){
+  const avg=computeAvg(getPolls(),pollsterOvr);
+  renderHeaderCards(avg,getRepName(),'whcards');
+  renderMbar(avg,getRepName(),'wmbar');
+}
+function resetWeights(){
+  pollsterOvr={};
+  renderWeightPanel();
+  renderAgg();
+}
+
+function renderBaselineSelect(){
+  document.getElementById('blSelect').innerHTML=BASELINES.map(b=>{
+    const col=b.Rm>0?'var(--rep2)':'var(--dem2)';
+    const lbl=b.Rm>0?`R +${b.Rm}`:`D +${Math.abs(b.Rm)}`;
+    return`<div class="bl-opt${b.id===activeBaseline?' active':''}" onclick="setBaseline('${b.id}')">
+      <input type="radio" name="bl" ${b.id===activeBaseline?'checked':''}><div>
+      <div class="bl-name">${b.label}</div>
+      <div class="bl-res" style="color:${col}">${b.sub} · ${lbl}</div></div>
+    </div>`;
+  }).join('');
+}
+function setBaseline(id){activeBaseline=id;renderBaselineSelect();updateSwing();}
+
+function getSlider(id){return parseFloat(document.getElementById('sl-'+id).value);}
+function setSliderDisplay(id,v){document.getElementById('sv-'+id).textContent=(v>=0?'+':'')+v.toFixed(1);}
+
+function updateSwing(){
+  const uniform=getSlider('uniform'),latino=getSlider('latino'),suburban=getSlider('suburban'),
+        rural=getSlider('rural'),indie=getSlider('indie'),cross=getSlider('cross');
+  ['uniform','latino','suburban','rural','indie','cross'].forEach(k=>setSliderDisplay(k,getSlider(k)));
+  const base=BASELINES.find(b=>b.id===activeBaseline);
+  const demo=(latino*.40)+(suburban*.20)+(-rural*.25)+(indie*.15)+cross;
+  const total=uniform+demo;
+  const projD=Math.max(0,Math.min(100,base.dem+total));
+  const projR=Math.max(0,Math.min(100,base.rep-total));
+  const spr=projD-projR;
+  const mainEl=document.getElementById('sw-main'),badgeEl=document.getElementById('sw-badge'),subEl=document.getElementById('sw-sub');
+  if(spr>0.05){mainEl.className='sw-res-main dc';mainEl.textContent=`D +${spr.toFixed(1)}`;badgeEl.innerHTML='<span class="swb sw-d">Talarico projected WIN</span>';}
+  else if(spr<-0.05){mainEl.className='sw-res-main rc';mainEl.textContent=`R +${Math.abs(spr).toFixed(1)}`;badgeEl.innerHTML=`<span class="swb sw-r">${swMatchup==='cornyn'?'Cornyn':'Paxton'} projected WIN</span>`;}
+  else{mainEl.className='sw-res-main gc';mainEl.textContent='TOSS-UP';badgeEl.innerHTML='<span class="swb sw-t">Too close to call</span>';}
+  subEl.textContent=`Projected: ${projD.toFixed(1)}% D — ${projR.toFixed(1)}% R`;
+  drawDial(spr);
+  renderHistBars(projD,projR);
+  drawCountyMap(uniform,latino,suburban,rural,indie,cross,total);
+}
+function resetSwing(){
+  ['sl-uniform','sl-latino','sl-suburban','sl-rural','sl-indie','sl-cross'].forEach(id=>document.getElementById(id).value=0);
+  updateSwing();
+}
+
+function drawDial(spread){
+  const canvas=document.getElementById('swingCanvas');
+  const dpr=window.devicePixelRatio||1;
+  const dispW=canvas.offsetWidth||360;
+  const dispH=Math.round(dispW*0.56);
+  canvas.width=dispW*dpr;canvas.height=dispH*dpr;
+  canvas.style.height=dispH+'px';
+  const ctx=canvas.getContext('2d');
+  ctx.scale(dpr,dpr);
+  const W=dispW,H=dispH;
+  ctx.clearRect(0,0,W,H);
+  const cx=W/2,cy=H*.93,R=W*.42;
+  const gr=ctx.createLinearGradient(cx-R,0,cx+R,0);
+  gr.addColorStop(0,'#1a5fb5');gr.addColorStop(.38,'#3d8ef0');gr.addColorStop(.5,'#1e2436');gr.addColorStop(.62,'#e84545');gr.addColorStop(1,'#a82222');
+  ctx.beginPath();ctx.arc(cx,cy,R,Math.PI,0);ctx.lineWidth=W*.065;ctx.strokeStyle=gr;ctx.stroke();
+  for(let i=-20;i<=20;i+=2){
+    const ang=Math.PI-((i+20)/40)*Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx+(R-W*.04)*Math.cos(ang),cy-(R-W*.04)*Math.sin(ang));
+    ctx.lineTo(cx+(R+W*.04)*Math.cos(ang),cy-(R+W*.04)*Math.sin(ang));
+    ctx.lineWidth=i===0?2.5:.7;ctx.strokeStyle=i===0?'#f0c040':'rgba(255,255,255,.2)';ctx.stroke();
+    if(Math.abs(i)%4===0&&i!==0){
+      ctx.font=`${W*.026}px DM Mono,monospace`;ctx.fillStyle='rgba(255,255,255,.3)';
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(Math.abs(i),cx+(R+W*.08)*Math.cos(ang),cy-(R+W*.08)*Math.sin(ang));
+    }
+  }
+  const cl=Math.max(-20,Math.min(20,spread));
+  const na=Math.PI-((cl+20)/40)*Math.PI;
+  ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+R*.86*Math.cos(na),cy-R*.86*Math.sin(na));
+  ctx.lineWidth=W*.016;ctx.strokeStyle='#f0c040';ctx.lineCap='round';ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,W*.02,0,Math.PI*2);ctx.fillStyle='#f0c040';ctx.fill();
+  ctx.font=`bold ${W*.042}px Barlow Condensed,sans-serif`;ctx.textBaseline='bottom';
+  ctx.fillStyle='#6aaeff';ctx.textAlign='left';ctx.fillText('D',cx-R-2,cy+2);
+  ctx.fillStyle='#ff7575';ctx.textAlign='right';ctx.fillText('R',cx+R+2,cy+2);
+}
+
+function renderHistBars(projD,projR){
+  const all=[...BASELINES,{id:'proj',label:'2026 Projected',dem:projD,rep:projR}];
+  document.getElementById('histBars').innerHTML=all.map(b=>{
+    const tot=b.dem+b.rep,dW=(b.dem/tot*100).toFixed(1),rW=(b.rep/tot*100).toFixed(1);
+    const isP=b.id==='proj';
+    const lc=isP?'var(--gold)':'var(--text3)';
+    const dBg=isP?'rgba(61,142,240,.5)':'var(--dem)',rBg=isP?'rgba(232,69,69,.5)':'var(--rep)';
+    const bd=isP?'border:1px dashed var(--dem);':'',br=isP?'border:1px dashed var(--rep);':'';
+    return`<div class="hbar-row">
+      <div class="hbar-lbl" style="color:${lc}">${b.label}</div>
+      <div class="hbar-track">
+        <div class="hbar-d" style="width:${dW}%;background:${dBg};${bd}"><span class="hbar-pct">${parseFloat(b.dem).toFixed(0)}</span></div>
+        <div class="hbar-r" style="width:${rW}%;background:${rBg};${br}"><span class="hbar-pct">${parseFloat(b.rep).toFixed(0)}</span></div>
+        <div class="hbar-50"></div>
+      </div></div>`;
+  }).join('');
+}
+
+const TX_COUNTIES=[
+  {fips:'48201',name:'Harris',bd:56,br:42,type:'urban'},
+  {fips:'48113',name:'Dallas',bd:65,br:33,type:'urban'},
+  {fips:'48439',name:'Tarrant',bd:50,br:48,type:'suburban'},
+  {fips:'48029',name:'Bexar',bd:60,br:38,type:'urban'},
+  {fips:'48453',name:'Travis',bd:73,br:25,type:'urban'},
+  {fips:'48085',name:'Collin',bd:45,br:53,type:'suburban'},
+  {fips:'48121',name:'Denton',bd:44,br:54,type:'suburban'},
+  {fips:'48157',name:'Fort Bend',bd:55,br:43,type:'suburban'},
+  {fips:'48491',name:'Williamson',bd:48,br:50,type:'suburban'},
+  {fips:'48141',name:'El Paso',bd:65,br:33,type:'urban'},
+  {fips:'48215',name:'Hidalgo',bd:60,br:38,type:'latino'},
+  {fips:'48061',name:'Cameron',bd:58,br:40,type:'latino'},
+  {fips:'48479',name:'Webb',bd:68,br:30,type:'latino'},
+  {fips:'48355',name:'Nueces',bd:47,br:51,type:'suburban'},
+  {fips:'48339',name:'Montgomery',bd:24,br:74,type:'rural'},
+  {fips:'48041',name:'Brazos',bd:37,br:61,type:'rural'},
+  {fips:'48245',name:'Jefferson',bd:52,br:46,type:'urban'},
+  {fips:'48303',name:'Lubbock',bd:26,br:72,type:'rural'},
+  {fips:'48329',name:'Midland',bd:18,br:80,type:'rural'},
+  {fips:'48423',name:'Smith',bd:30,br:68,type:'rural'},
+  {fips:'48167',name:'Galveston',bd:40,br:58,type:'suburban'},
+  {fips:'48027',name:'Bell',bd:41,br:57,type:'rural'},
+  {fips:'48309',name:'McLennan',bd:36,br:62,type:'rural'},
+  {fips:'48039',name:'Brazoria',bd:39,br:59,type:'suburban'},
+  {fips:'48367',name:'Parker',bd:22,br:76,type:'rural'},
+  {fips:'48375',name:'Potter',bd:34,br:64,type:'rural'},
+  {fips:'48381',name:'Randall',bd:20,br:78,type:'rural'},
+  {fips:'48451',name:'Tom Green',bd:30,br:68,type:'rural'},
+  {fips:'48251',name:'Johnson',bd:26,br:72,type:'rural'},
+  {fips:'48257',name:'Kaufman',bd:30,br:68,type:'rural'},
+  {fips:'48135',name:'Ector',bd:22,br:76,type:'rural'},
+  {fips:'48209',name:'Hays',bd:54,br:44,type:'suburban'},
+  {fips:'48187',name:'Guadalupe',bd:40,br:58,type:'suburban'},
+  {fips:'48397',name:'Rockwall',bd:35,br:63,type:'suburban'},
+  {fips:'48231',name:'Hunt',bd:28,br:70,type:'rural'},
+  {fips:'48181',name:'Grayson',bd:30,br:68,type:'rural'},
+  {fips:'48139',name:'Ellis',bd:34,br:64,type:'suburban'},
+  {fips:'48493',name:'Wilson',bd:36,br:62,type:'rural'},
+  {fips:'48427',name:'Starr',bd:60,br:38,type:'latino'},
+  {fips:'48505',name:'Zapata',bd:50,br:48,type:'latino'},
+  {fips:'48465',name:'Val Verde',bd:54,br:44,type:'latino'},
+  {fips:'48323',name:'Maverick',bd:70,br:28,type:'latino'},
+  {fips:'48037',name:'Bowie',bd:37,br:61,type:'rural'},
+  {fips:'48361',name:'Orange',bd:27,br:71,type:'rural'},
+  {fips:'48213',name:'Henderson',bd:26,br:72,type:'rural'},
+  {fips:'48203',name:'Hardin',bd:20,br:78,type:'rural'},
+  {fips:'48347',name:'Nacogdoches',bd:32,br:66,type:'rural'},
+  {fips:'48073',name:'Cherokee',bd:27,br:71,type:'rural'},
+  {fips:'48471',name:'Walker',bd:36,br:62,type:'rural'},
+  {fips:'48485',name:'Wichita',bd:30,br:68,type:'rural'},
+];
+const fipsLookup={};TX_COUNTIES.forEach(c=>fipsLookup[c.fips]=c);
+
+function countySwing(c,uniform,latino,suburban,rural,indie,cross){
+  let s=uniform;
+  if(c.type==='latino')s+=(latino*.65)+(indie*.15)+(cross*.8);
+  else if(c.type==='urban')s+=(latino*.20)+(suburban*.25)+(indie*.25)+(cross*.5);
+  else if(c.type==='suburban')s+=(suburban*.40)+(indie*.25)+(-rural*.10)+(cross*.4);
+  else s+=(-rural*.50)+(indie*.10)+(latino*.05)+(cross*.2);
+  return s;
+}
+function countyColor(m){
+  if(m>20)return'#0f3a7a';if(m>14)return'#1a5fb5';if(m>8)return'#3d8ef0';
+  if(m>3)return'#7ab4f5';if(m>-3)return'#888a9a';if(m>-8)return'#f5908a';
+  if(m>-14)return'#e84545';if(m>-20)return'#b52020';return'#700e0e';
+}
+
+function drawCountyMap(uniform,latino,suburban,rural,indie,cross,totalGlobal){
+  if(!txGeo)return;
+  const svg=d3.select('#txMapSvg');
+  svg.selectAll('*').remove();
+  const proj=d3.geoMercator().fitSize([600,480],txGeo);
+  const path=d3.geoPath(proj);
+  const tt=document.getElementById('mapTT');
+  txGeo.features.forEach(f=>{
+    const fips=String(f.id||'');
+    const c=fipsLookup[fips];
+    let col='#1a1e2d',tipHtml='';
+    if(c){
+      const shift=countySwing(c,uniform,latino,suburban,rural,indie,cross);
+      const pD=Math.max(0,Math.min(100,c.bd+shift));
+      const pR=Math.max(0,Math.min(100,c.br-shift));
+      const m=pD-pR;
+      col=countyColor(m);
+      const ml=m>0?`<span style="color:var(--dem2)">D +${m.toFixed(1)}</span>`:`<span style="color:var(--rep2)">R +${Math.abs(m).toFixed(1)}</span>`;
+      tipHtml=`<strong style="color:var(--text)">${c.name} County</strong><br>${pD.toFixed(1)}% D · ${pR.toFixed(1)}% R<br>${ml}`;
+    }else{
+      tipHtml=`<span style="color:var(--text3)">${f.properties&&f.properties.name||fips}</span>`;
+    }
+    svg.append('path').datum(f).attr('d',path).attr('class','county-path').attr('fill',col)
+      .on('mousemove',function(event){tt.style.display='block';tt.style.left=(event.clientX+14)+'px';tt.style.top=(event.clientY-38)+'px';tt.innerHTML=tipHtml;})
+      .on('mouseleave',function(){tt.style.display='none';});
+  });
+}
+
+function renderMethGradeTable(){
+  document.getElementById('gradeBody').innerHTML=GRADE_INFO.map(g=>
+    `<tr><td><span class="grade-badge ${GRADE_CSS[g.g]||'gC'}">${g.g}</span></td><td style="color:var(--gold);font-family:var(--font-m)">${g.m.toFixed(2)}×</td><td style="color:var(--text2)">${g.d}</td><td style="color:var(--text3)">${g.e||'—'}</td></tr>`
+  ).join('');
+}
+
+function showPanel(name,btn){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  if(btn)btn.classList.add('active');
+  if(name==='weights')renderWeightPanel();
+  if(name==='swing'){renderBaselineSelect();setTimeout(()=>updateSwing(),80);}
+  if(name==='meth')renderMethGradeTable();
+}
+
+async function loadMap(){
+  try{
+    const us=await d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/counties-10m.json');
+    const all=topojson.feature(us,us.objects.counties);
+    txGeo={type:'FeatureCollection',features:all.features.filter(f=>String(f.id||'').startsWith('48'))};
+    drawCountyMap(0,0,0,0,0,0,0);
+  }catch(e){
+    document.querySelector('#txMapSvg').innerHTML='<text x="50%" y="50%" fill="#484f68" font-family="Figtree" font-size="13" text-anchor="middle" dominant-baseline="middle">County map loading...</text>';
+    console.warn('Map load error:',e);
+  }
+}
+
+window.addEventListener('load',()=>{
+  document.getElementById('ap-date').value='2026-05-13';
+  renderAgg();
+  renderBaselineSelect();
+  loadMap();
+  setTimeout(()=>updateSwing(),200);
+  window.addEventListener('resize',()=>{
+    if(document.getElementById('panel-swing').classList.contains('active'))updateSwing();
+  });
+});
+</script>
+</body>
+</html>
